@@ -16,6 +16,10 @@ namespace WifiPasswordExtractProxy
                         ExitWithError(5, "ERROR: This application sould be run with SYSTEM user.\n\"%0 help\" to show help");
                         return;
                     }
+                    else
+                    {
+                        Console.WriteLine("BOOTSTRAP: Proxy called from SYSTEM user");
+                    }
                     DataExtractor.SystemEntrypointAsync().GetAwaiter().GetResult();
                     break;
 
@@ -38,13 +42,8 @@ namespace WifiPasswordExtractProxy
             switch (arg)
             {
                 case "regist":
+                    if (File.Exists(ExtractProxy.StatusPath)) File.Delete(ExtractProxy.StatusPath);
                     Environment.Exit(RunAsSystem() ? 0 : 2);
-                    return;
-
-                case "checkend":
-                    bool isend = DataExtractor.IsEndAsync().GetAwaiter().GetResult();
-                    int exitcode = isend ? 0 : 1;
-                    Environment.Exit(exitcode);
                     return;
 
                 case "help":
@@ -56,11 +55,12 @@ Args:
 regist:
     Query to run this application
 
-checkend:
-    Check if extract process has been end
-
 help:
     This help
+
+clean:
+    Clean all working file
+    Notice: This will remove log file too.
 
 export %Export Dir%:
     Export extracted files into directory
@@ -70,6 +70,10 @@ export %Export Dir%:
     Notice: This process must be run with SYSTEM user.
             You can use 'PsExec -s' or 'regist' option");
                     return;
+
+                case "clean":
+                    Clean();
+                    break;
 
                 default:
                     ExitWithError();
@@ -83,7 +87,7 @@ export %Export Dir%:
 
             if (!Directory.Exists(a2)) ExitWithError(3, "ERROR: export dir not found");
 
-            DataExtractor.UserEntryPoint().GetAwaiter().GetResult();
+            DataExtractor.UserEntryPoint(Path.GetFullPath(a2)).GetAwaiter().GetResult();
         }
 
         private static void ExitWithError(int code = 1, string reason = "ERROR: not valid args")
@@ -92,7 +96,7 @@ export %Export Dir%:
             Environment.Exit(code);
         }
 
-        private static int ExecuteProcess(string executable, string args, bool echo = false)
+        private static int ExecuteProcess(string executable, string args, bool echo = true)
         {
             var psi = new ProcessStartInfo(executable, args);
             psi.RedirectStandardOutput = true;
@@ -115,9 +119,29 @@ export %Export Dir%:
 
             int p1 = ExecuteProcess("schtasks.exe", $"/create /f /sc Once /tn \"{ExtractProxy.TaskName}\" /tr \"{ExtractProxy.ExecutablePath}\" /st 23:59 /ru \"SYSTEM\" /V1 /Z");
             int p2 = ExecuteProcess("schtasks.exe", $"/run /tn \"{ExtractProxy.TaskName}\"");
-            int p3 = ExecuteProcess("schtasks.exe", $"/delete /f /tn \"{ExtractProxy.TaskName}\"");
+            // int p3 = ExecuteProcess("schtasks.exe", $"/delete /f /tn \"{ExtractProxy.TaskName}\"");
 
-            return p1 == 0 && p2 == 0 && p3 == 0;
+            //return p1 == 0 && p2 == 0 && p3 == 0;
+            return true;
+        }
+
+        private static void Clean()
+        {
+            try
+            {
+                if (File.Exists(ExtractProxy.LogPath)) File.Delete(ExtractProxy.LogPath);
+            }
+            catch { }
+            try
+            { 
+                if (File.Exists(ExtractProxy.StatusPath)) File.Delete(ExtractProxy.StatusPath);
+            }
+            catch { }
+            try
+            { 
+                if (Directory.Exists(ExtractProxy.ExtractPath)) Directory.Delete(ExtractProxy.ExtractPath, true);
+            }
+            catch { }
         }
     }
 }

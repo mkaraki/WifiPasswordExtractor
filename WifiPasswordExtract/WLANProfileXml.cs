@@ -10,6 +10,8 @@
         [System.Xml.Serialization.XmlRootAttribute(Namespace = "http://www.microsoft.com/networking/WLAN/profile/v1", IsNullable = false)]
         public partial class WLANProfile
         {
+            public string guid { get; set; }
+
             private string nameField;
 
             private WLANProfileSSIDConfig sSIDConfigField;

@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 
@@ -13,52 +15,125 @@ namespace WifiPasswordExtract
 
         private static XmlSerializer wlanProfileSerializer = new XmlSerializer(typeof(WLANProfileXml.WLANProfile));
 
-        public static async Task ExtractPasswordsAsync()
+        public static async Task<IEnumerable<WifiCredential>> ExtractPasswordsAsync()
         {
-            await ProcessNotEnterprisePasswords();
-            // await ProcessOneXPassword();
+            List<WifiCredential> toret = new List<WifiCredential>();
+
+            toret.AddRange(await ProcessOneXPassword());
+            toret = (await ProcessNotEnterprisePasswords(toret)).ToList();
+
+            return toret;
         }
 
-        private static async Task ProcessOneXPassword()
+        #region OneX
+
+        private static async Task<IEnumerable<WifiCredential>> ProcessOneXPassword()
         {
             var proxy = WifiPasswordExtractProxy.ExtractProxy.ExecutablePath;
-            Console.WriteLine("Proxy: {0}", proxy);
 
             var p = Process.Start(proxy, "regist");
-            await Task.Run (() => p.WaitForExit());
-            if (p.ExitCode != 0) return;
+            await Task.Run(() => p.WaitForExit());
+            if (p.ExitCode != 0) return null;
 
+            do
+            {
+                await Task.Delay(500);
+            }
+            while (!File.Exists(WifiPasswordExtractProxy.ExtractProxy.StatusPath));
 
+            return await ExportOneXPassword(proxy);
         }
 
-        private static async Task ProcessNotEnterprisePasswords()
+        private static async Task<IEnumerable<WifiCredential>> ExportOneXPassword(string proxy)
         {
+            var rnd = new Random();
+            var tempdir = Path.Combine(Path.GetTempPath(), $"WIFIPASSWORDEXTRACT_{rnd.Next(0, int.MaxValue)}");
+
+            Debug.WriteLine(tempdir);
+
+            if (Directory.Exists(tempdir))
+                return await ExportOneXPassword(proxy);
+
+            try
+            {
+                Directory.CreateDirectory(tempdir);
+            }
+            catch
+            {
+                throw new Exception("Permission Denied");
+            }
+
+            var p = Process.Start(proxy, $"export \"{tempdir}\"");
+            await Task.Run(() => p.WaitForExit());
+            if (p.ExitCode != 0) return null;
+
+            return await GetOneXDatasInExportedDirectory(tempdir);
+        }
+
+        private static async Task<IEnumerable<WifiCredential>> GetOneXDatasInExportedDirectory(string dir)
+        {
+            List<WifiCredential> toret = new List<WifiCredential>();
+            foreach (var file in Directory.GetFiles(dir, "*.wpei", SearchOption.TopDirectoryOnly))
+            {
+                string[] data = await Task.Run(() => File.ReadAllLines(file, Encoding.UTF8));
+                if (data.Length != 3) continue;
+                var c = new WifiCredential(string.Empty, data[0], data[1], data[2]);
+                c.GUID = Path.GetFileNameWithoutExtension(file);
+                toret.Add(c);
+            }
+            return toret;
+        }
+
+        #endregion OneX
+
+        #region Personal
+
+        private static async Task<IEnumerable<WifiCredential>> ProcessNotEnterprisePasswords(List<WifiCredential> host)
+        {
+            List<WifiCredential> toret = host;
+
             foreach (var profile in await GetWlanProfilesFromDirectoryAsync())
             {
-                if (profile.MSM.security.authEncryption.useOneX) continue;
-
-                if (profile.MSM.security.authEncryption.authentication != "open" && profile.MSM.security.sharedKey != null)
+                if (profile.MSM.security.authEncryption.useOneX)
                 {
-                    Console.Write("{0}: {1}",
-                        profile.SSIDConfig.SSID.name,
-                        profile.MSM.security.sharedKey.@protected ? string.Empty : profile.MSM.security.sharedKey.keyMaterial);
+                    var guidcheck = toret.Where(v=> v.GUID == profile.guid);
+                    if (guidcheck.Any())
+                    {
+                        guidcheck.First().SSID = profile.SSIDConfig.SSID.name;
+                    }
+                    continue;
                 }
-                else
+
+                if (profile.MSM.security.sharedKey != null && !profile.MSM.security.sharedKey.@protected)
                 {
-                    Console.Write(profile.SSIDConfig.SSID.name);
+                    var c = new WifiCredential(profile.SSIDConfig.SSID.name, profile.MSM.security.sharedKey.keyMaterial);
+                    c.GUID = profile.guid;
+                    toret.Add(c);
+                    continue;
+                }
+                else if (profile.MSM.security.authEncryption.authentication == "open")
+                {
+                    var c = new WifiCredential(profile.SSIDConfig.SSID.name);
+                    c.GUID = profile.guid;
+                    toret.Add(c);
+                    continue;
                 }
 
                 if (profile.MSM.security.sharedKey != null && profile.MSM.security.sharedKey.@protected)
                 {
                     var dprofile = await GetWlanProfilesFromNetshWithProfileNameAsync(profile.name);
-                    if (dprofile.Length < 1)
-                        Console.Write("FAILED");
-                    else
-                        Console.Write(dprofile[0].MSM.security.sharedKey.keyMaterial);
+                    if (dprofile.Length > 0 && !dprofile[0].MSM.security.sharedKey.@protected)
+                    {
+                        var c = new WifiCredential(profile.SSIDConfig.SSID.name, dprofile[0].MSM.security.sharedKey.keyMaterial);
+                        c.GUID = profile.guid;
+                        toret.Add(c);
+                        continue;
+                    }
                 }
 
-                Console.WriteLine();
             }
+
+            return toret;
         }
 
         private static async Task<WLANProfileXml.WLANProfile[]> GetWlanProfilesFromDirectoryAsync(string directory = WIFI_PROFILES_BASEDIR)
@@ -71,11 +146,13 @@ namespace WifiPasswordExtract
                 WLANProfileXml.WLANProfile profile = null;
                 using (var sr = new StreamReader(profilepath))
                 {
-                    profile = await Task.Run (() => (WLANProfileXml.WLANProfile)wlanProfileSerializer.Deserialize(sr));
+                    profile = await Task.Run(() => (WLANProfileXml.WLANProfile)wlanProfileSerializer.Deserialize(sr));
                 }
 
                 if (profile == null) continue;
                 if (profile.name == null) continue;
+
+                profile.guid = Path.GetFileNameWithoutExtension(profilepath);
 
                 parsedprofiles.Add(profile);
             }
@@ -88,7 +165,7 @@ namespace WifiPasswordExtract
             var toret = new WLANProfileXml.WLANProfile[0];
 
             var rnd = new Random();
-            var tempdir = Path.Combine(Path.GetTempPath(), $"WIFIPASSWORDEXTRACT_{rnd.Next(0,int.MaxValue)}");
+            var tempdir = Path.Combine(Path.GetTempPath(), $"WIFIPASSWORDEXTRACT_{rnd.Next(0, int.MaxValue)}");
 
             Debug.WriteLine(tempdir);
 
@@ -101,7 +178,7 @@ namespace WifiPasswordExtract
             }
             catch
             {
-                throw new Exception("Permission Denied");          
+                throw new Exception("Permission Denied");
             }
 
             try
@@ -112,8 +189,8 @@ namespace WifiPasswordExtract
                     toret = await GetWlanProfilesFromDirectoryAsync(tempdir);
                 }
             }
-            finally 
-            { 
+            finally
+            {
                 try
                 {
                     Directory.Delete(tempdir, true);
@@ -137,5 +214,7 @@ namespace WifiPasswordExtract
             await Task.Run(() => p.WaitForExit());
             return p.ExitCode == 0;
         }
+
+        #endregion Personal
     }
 }

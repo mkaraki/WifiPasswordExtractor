@@ -12,6 +12,10 @@ namespace WifiPasswordExtractProxy
 
         internal static readonly string TaskName = "WIFIPASSWORDEXTRACT_SERVICE";
 
-        internal static readonly string StatusPath = $@"C:\{TaskName}_STATUS.wpes";
+        public static readonly string StatusPath = $@"C:\{TaskName}_STATUS.wpes";
+
+        internal static readonly string LogPath = $@"C:\{TaskName}_LOG.log";
+
+        public static readonly string ExtractPath = $@"C:\{TaskName}_EXTRACTED";
     }
 }
