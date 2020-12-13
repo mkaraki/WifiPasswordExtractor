@@ -105,7 +105,7 @@ namespace WifiPasswordExtract
             {
                 if (profile.MSM.security.authEncryption.useOneX)
                 {
-                    var guidcheck = toret.Where(v=> v.GUID == profile.guid);
+                    var guidcheck = toret.Where(v => v.GUID == profile.guid);
                     if (guidcheck.Any())
                     {
                         guidcheck.First().SSID = profile.SSIDConfig.SSID.name;
@@ -139,7 +139,6 @@ namespace WifiPasswordExtract
                         continue;
                     }
                 }
-
             }
 
             return toret;

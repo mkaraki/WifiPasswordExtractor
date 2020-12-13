@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace WifiPasswordExtract
+﻿namespace WifiPasswordExtract
 {
     public class WifiCredential
     {
@@ -43,7 +37,6 @@ namespace WifiPasswordExtract
             this.Username = Username;
             this.OneX = true;
         }
-
 
         /// <summary>
         /// Optional: Save Windows GUID
@@ -92,7 +85,6 @@ namespace WifiPasswordExtract
                     return $"{SSID}: {Username} : {Password}";
                 else
                     return $"{SSID}: {Username}@{Domain} : {Password}";
-
             }
         }
     }

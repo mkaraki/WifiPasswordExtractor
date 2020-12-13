@@ -133,12 +133,12 @@ export %Export Dir%:
             }
             catch { }
             try
-            { 
+            {
                 if (File.Exists(ExtractProxy.StatusPath)) File.Delete(ExtractProxy.StatusPath);
             }
             catch { }
             try
-            { 
+            {
                 if (Directory.Exists(ExtractProxy.ExtractPath)) Directory.Delete(ExtractProxy.ExtractPath, true);
             }
             catch { }
