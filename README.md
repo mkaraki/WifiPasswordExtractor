@@ -8,6 +8,9 @@ Wi-Fi Password Extractor for Windows
 - WPA Enterprise
 
 ## Usage
+Run `WifiPasswordExtractorGUI.exe`
+
+or use CUI tool
 ```
 > WifiPasswordExtractor.exe
 System may prompt UAC 2 times in scan.
