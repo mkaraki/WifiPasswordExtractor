@@ -19,17 +19,8 @@ namespace WifiPasswordExtract
         {
             List<WifiCredential> toret = new List<WifiCredential>();
 
-            try
-            {
-                toret.AddRange(await ProcessOneXPassword());
-            }
-            catch { }
-
-            try
-            {
-                toret = (await ProcessNotEnterprisePasswords(toret)).ToList();
-            }
-            catch { }
+            toret.AddRange(await ProcessOneXPassword());
+            toret = (await ProcessNotEnterprisePasswords(toret)).ToList();
 
             return toret;
         }
