@@ -12,7 +12,6 @@ namespace WifiPasswordExtractor
         static void Main(string[] args)
         {
             Extractor.ExtractPasswordsAsync().GetAwaiter().GetResult();
-            Console.ReadLine();
         }
     }
 }
