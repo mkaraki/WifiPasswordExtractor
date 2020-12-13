@@ -96,7 +96,7 @@ export %Export Dir%:
             Environment.Exit(code);
         }
 
-        private static int ExecuteProcess(string executable, string args, bool echo = true)
+        private static int ExecuteProcess(string executable, string args, bool echo = false)
         {
             var psi = new ProcessStartInfo(executable, args);
             psi.RedirectStandardOutput = true;

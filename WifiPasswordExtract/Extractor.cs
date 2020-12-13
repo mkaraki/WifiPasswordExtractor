@@ -218,6 +218,7 @@ namespace WifiPasswordExtract
             psi.RedirectStandardOutput = true;
             psi.RedirectStandardError = true;
             psi.UseShellExecute = false;
+            psi.CreateNoWindow = true;
             var p = Process.Start(psi);
             await Task.Run(() => p.WaitForExit());
             return p.ExitCode == 0;

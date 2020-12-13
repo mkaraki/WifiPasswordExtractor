@@ -73,6 +73,19 @@
         /// </summary>
         public string Password { get; set; }
 
+        public string AuthType
+        {
+            get
+            {
+                if (Open)
+                    return "Open";
+                else if (!OneX)
+                    return "Personal";
+                else
+                    return "Enterprise";
+            }
+        }
+
         public override string ToString()
         {
             if (Open)
