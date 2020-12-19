@@ -16,7 +16,7 @@ namespace WifiPasswordExtract
 
         private static XmlSerializer wlanProfileSerializer = new XmlSerializer(typeof(WLANProfileXml.WLANProfile));
 
-        public static bool UseLegacyNetshBasedPasswordExtract = true;
+        public static bool UseLegacyNetshBasedPasswordExtract = false;
 
         public static async Task<IEnumerable<WifiCredential>> ExtractPasswordsAsync()
         {
@@ -35,6 +35,8 @@ namespace WifiPasswordExtract
                 toret = (await ProcessNotEnterprisePasswords(toret)).ToList();
             }
             catch { }
+
+            await Task.Delay(1500);
 
             RunAdministrativeProcessWithProxy(null);
 
@@ -151,19 +153,19 @@ namespace WifiPasswordExtract
                             toret.Add(c);
                             continue;
                         }
-                        else
-                        {
-                            var b64km = KeyMaterialToBase64(profile.MSM.security.sharedKey.keyMaterial);
-                            var c = new WifiCredential(profile.SSIDConfig.SSID.name, b64km);
-                            c.GUID = profile.guid;
-                            waitfordecrypt.Add(c);
-                        }
+                    }
+                    else
+                    {
+                        var b64km = KeyMaterialToBase64(profile.MSM.security.sharedKey.keyMaterial);
+                        var c = new WifiCredential(profile.SSIDConfig.SSID.name, b64km);
+                        c.GUID = profile.guid;
+                        waitfordecrypt.Add(c);
                     }
                 }
             }
 
             if (!UseLegacyNetshBasedPasswordExtract)
-            { 
+            {
                 var keys = await DecryptPasswordsBySYSTEMAccount(waitfordecrypt.Select(v => v.Password).ToArray());
                 List<WifiCredential> newcred = new List<WifiCredential>();
                 foreach (var key in keys)
@@ -213,7 +215,9 @@ namespace WifiPasswordExtract
             {
                 string[] dii = di.Split(',');
                 if (dii.Length != 2) continue;
-                toret.Add(dii[0], dii[1]);
+                byte[] rawpwd = Convert.FromBase64String(dii[1]);
+                string plainpwd = Encoding.ASCII.GetString(rawpwd, 0, rawpwd.Length);
+                toret.Add(dii[0], plainpwd);
             }
 
             RunAdministrativeProcessWithProxy(WifiPasswordDecryptProxy.DecryptProxy.ExecutablePath, "clean");
@@ -312,7 +316,8 @@ namespace WifiPasswordExtract
             psi.CreateNoWindow = true;
             var p = Process.Start(psi);
 
-            Task.Run(async () => { 
+            Task.Run(async () =>
+            {
                 try
                 {
                     using (var stream = new NamedPipeServerStream(WifiPasswordExtractorAdministratorProxy.AdministratorProxy.PipeName))
@@ -348,7 +353,7 @@ namespace WifiPasswordExtract
 
         private static void RunAdministrativeProcessWithProxy(string bin, string arg = "")
         {
-            AdministrativeExecuteQueries.Enqueue((bin, arg));   
+            AdministrativeExecuteQueries.Enqueue((bin, arg));
         }
     }
 }

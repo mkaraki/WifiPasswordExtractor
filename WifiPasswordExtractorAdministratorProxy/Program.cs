@@ -29,7 +29,9 @@ namespace WifiPasswordExtractorAdministratorProxy
 
         static void Main(string[] args)
         {
+#if !DEBUG
             ShowWindow(GetConsoleWindow(), SW_HIDE);
+#endif
 
             Console.WriteLine(@"Wi-Fi Password Extractor Administrator Proxy
 This Program will able to run few Administrative Processes.
