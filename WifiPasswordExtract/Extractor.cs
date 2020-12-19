@@ -123,6 +123,14 @@ namespace WifiPasswordExtract
                     {
                         guidcheck.First().SSID = profile.SSIDConfig.SSID.name;
                     }
+                    else
+                    {
+                        toret.Add(new WifiCredential(profile.SSIDConfig.SSID.name) 
+                        {
+                            Open = false,
+                            OneX = true,
+                        });
+                    }
                     continue;
                 }
 
