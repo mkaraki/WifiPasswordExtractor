@@ -36,8 +36,6 @@ namespace WifiPasswordExtract
             }
             catch { }
 
-            await Task.Delay(1500);
-
             RunAdministrativeProcessWithProxy(null);
 
             return toret;
@@ -229,6 +227,11 @@ namespace WifiPasswordExtract
             }
 
             RunAdministrativeProcessWithProxy(WifiPasswordDecryptProxy.DecryptProxy.ExecutablePath, "clean");
+            do
+            {
+                await Task.Delay(500);
+            }
+            while (Directory.Exists(WifiPasswordDecryptProxy.DecryptProxy.WorkingDirectory));
 
             return toret;
         }
