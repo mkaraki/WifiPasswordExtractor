@@ -12,10 +12,12 @@ namespace WifiPasswordDecryptProxy
 
         internal static readonly string TaskName = "WIFIPASSWORDDECRYPT_SERVICE";
 
-        public static readonly string StatusPath = $@"C:\{TaskName}_STATUS.wpes";
+        public static readonly string StatusPath = $@"C:\{TaskName}\STATUS.wpes";
 
-        internal static readonly string LogPath = $@"C:\{TaskName}_LOG.log";
+        internal static readonly string LogPath = $@"C:\{TaskName}\LOG.log";
 
-        public static readonly string ExtractPath = $@"C:\{TaskName}_EXTRACTED";
+        public static readonly string DecryptPath = $@"C:\{TaskName}\KEYS.wpek";
+
+        public static readonly string WorkingDirectory = $@"C:\{TaskName}";
     }
 }

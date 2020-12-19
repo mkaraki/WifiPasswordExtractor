@@ -16,9 +16,11 @@ namespace WifiPasswordExtract
 
         private static XmlSerializer wlanProfileSerializer = new XmlSerializer(typeof(WLANProfileXml.WLANProfile));
 
+        public static bool UseLegacyNetshBasedPasswordExtract = true;
+
         public static async Task<IEnumerable<WifiCredential>> ExtractPasswordsAsync()
         {
-            Task.Run(() => RunAdministratorProxyWithServer());
+            RunAdministratorProxyWithServer();
 
             List<WifiCredential> toret = new List<WifiCredential>();
 
@@ -108,6 +110,8 @@ namespace WifiPasswordExtract
         {
             List<WifiCredential> toret = host;
 
+            List<WifiCredential> waitfordecrypt = new List<WifiCredential>();
+
             foreach (var profile in await GetWlanProfilesFromDirectoryAsync())
             {
                 if (profile.MSM.security.authEncryption.useOneX)
@@ -137,16 +141,82 @@ namespace WifiPasswordExtract
 
                 if (profile.MSM.security.sharedKey != null && profile.MSM.security.sharedKey.@protected)
                 {
-                    var dprofile = await GetWlanProfilesFromNetshWithProfileNameAsync(profile.name);
-                    if (dprofile.Length > 0 && !dprofile[0].MSM.security.sharedKey.@protected)
+                    if (UseLegacyNetshBasedPasswordExtract)
                     {
-                        var c = new WifiCredential(profile.SSIDConfig.SSID.name, dprofile[0].MSM.security.sharedKey.keyMaterial);
-                        c.GUID = profile.guid;
-                        toret.Add(c);
-                        continue;
+                        var dprofile = await GetWlanProfilesFromNetshWithProfileNameAsync(profile.name);
+                        if (dprofile.Length > 0 && !dprofile[0].MSM.security.sharedKey.@protected)
+                        {
+                            var c = new WifiCredential(profile.SSIDConfig.SSID.name, dprofile[0].MSM.security.sharedKey.keyMaterial);
+                            c.GUID = profile.guid;
+                            toret.Add(c);
+                            continue;
+                        }
+                        else
+                        {
+                            var b64km = KeyMaterialToBase64(profile.MSM.security.sharedKey.keyMaterial);
+                            var c = new WifiCredential(profile.SSIDConfig.SSID.name, b64km);
+                            c.GUID = profile.guid;
+                            waitfordecrypt.Add(c);
+                        }
                     }
                 }
             }
+
+            if (!UseLegacyNetshBasedPasswordExtract)
+            { 
+                var keys = await DecryptPasswordsBySYSTEMAccount(waitfordecrypt.Select(v => v.Password).ToArray());
+                List<WifiCredential> newcred = new List<WifiCredential>();
+                foreach (var key in keys)
+                {
+                    var searcher = waitfordecrypt.Where(v => v.Password == key.Key);
+                    if (!searcher.Any()) continue;
+                    var cred = searcher.First();
+                    cred.Password = key.Value;
+                    newcred.Add(cred);
+                }
+                toret.AddRange(newcred);
+            }
+
+            return toret;
+        }
+
+        private static string KeyMaterialToBase64(string keyMaterial)
+        {
+            byte[] binkey = new byte[keyMaterial.Length / 2];
+            for (int i = 0; i < keyMaterial.Length; i += 2)
+            {
+                binkey[i / 2] = Convert.ToByte(keyMaterial.Substring(i, 2), 16);
+            }
+            return Convert.ToBase64String(binkey);
+        }
+
+        private static async Task<Dictionary<string, string>> DecryptPasswordsBySYSTEMAccount(string[] b64KeyMeterials)
+        {
+            RunAdministrativeProcessWithProxy(WifiPasswordDecryptProxy.DecryptProxy.ExecutablePath, "init");
+            do
+            {
+                await Task.Delay(500);
+            }
+            while (!File.Exists(WifiPasswordDecryptProxy.DecryptProxy.DecryptPath));
+
+            await Task.Run(() => File.WriteAllLines(WifiPasswordDecryptProxy.DecryptProxy.DecryptPath, b64KeyMeterials, Encoding.ASCII));
+            RunAdministrativeProcessWithProxy(WifiPasswordDecryptProxy.DecryptProxy.ExecutablePath, "regist");
+            do
+            {
+                await Task.Delay(500);
+            }
+            while (!File.Exists(WifiPasswordDecryptProxy.DecryptProxy.StatusPath));
+
+            string[] dis = await Task.Run(() => File.ReadAllLines(WifiPasswordDecryptProxy.DecryptProxy.DecryptPath, Encoding.ASCII));
+            Dictionary<string, string> toret = new Dictionary<string, string>();
+            foreach (var di in dis)
+            {
+                string[] dii = di.Split(',');
+                if (dii.Length != 2) continue;
+                toret.Add(dii[0], dii[1]);
+            }
+
+            RunAdministrativeProcessWithProxy(WifiPasswordDecryptProxy.DecryptProxy.ExecutablePath, "clean");
 
             return toret;
         }
@@ -235,43 +305,45 @@ namespace WifiPasswordExtract
 
         private static Queue<(string, string)> AdministrativeExecuteQueries = new Queue<(string, string)>();
 
-        private static async Task RunAdministratorProxyWithServer()
+        private static void RunAdministratorProxyWithServer()
         {
             var psi = new ProcessStartInfo(WifiPasswordExtractorAdministratorProxy.AdministratorProxy.ExecutablePath);
             psi.UseShellExecute = true;
             psi.CreateNoWindow = true;
             var p = Process.Start(psi);
 
-            try
-            {
-                using (var stream = new NamedPipeServerStream(WifiPasswordExtractorAdministratorProxy.AdministratorProxy.PipeName))
+            Task.Run(async () => { 
+                try
                 {
-                    await Task.Run(() => stream.WaitForConnection());
-
-                    using (var writer = new StreamWriter(stream))
+                    using (var stream = new NamedPipeServerStream(WifiPasswordExtractorAdministratorProxy.AdministratorProxy.PipeName))
                     {
-                        writer.AutoFlush = true;
-                        while (true)
+                        await Task.Run(() => stream.WaitForConnection());
+
+                        using (var writer = new StreamWriter(stream))
                         {
-                            if (AdministrativeExecuteQueries.Count < 1) continue;
-                            var queue = AdministrativeExecuteQueries.Dequeue();
-                            if (queue.Item1 == null)
+                            writer.AutoFlush = true;
+                            while (true)
                             {
-                                p.Kill();
-                                break;
+                                if (AdministrativeExecuteQueries.Count < 1) continue;
+                                var queue = AdministrativeExecuteQueries.Dequeue();
+                                if (queue.Item1 == null)
+                                {
+                                    p.Kill();
+                                    break;
+                                }
+                                await writer.WriteLineAsync($"exec\0{queue.Item1}\0{queue.Item2}");
                             }
-                            await writer.WriteLineAsync($"exec\0{queue.Item1}\0{queue.Item2}");
                         }
                     }
                 }
-            }
-            catch (IOException)
-            { }
-            finally
-            {
-                if (!p.HasExited)
-                    p.Kill();
-            }
+                catch (IOException)
+                { }
+                finally
+                {
+                    if (!p.HasExited)
+                        p.Kill();
+                }
+            });
         }
 
         private static void RunAdministrativeProcessWithProxy(string bin, string arg = "")
