@@ -58,7 +58,7 @@ DON'T CLOSE DURING SCANNING.");
                                     break;
 
                                 case "execwait":
-                                    ExecuteAndWaitAsync(cmd[1], cmd[2]);
+                                    Task.Run(() => ExecuteAndWaitAsync(cmd[1], cmd[2]));
                                     break;
 
                                 default:

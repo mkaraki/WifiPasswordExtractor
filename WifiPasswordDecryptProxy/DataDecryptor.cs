@@ -14,7 +14,7 @@ namespace WifiPasswordDecryptProxy
     {
         internal static async Task DecryptFromQueueFiles()
         {
-            string[] b64queuefile = File.ReadAllLines(DecryptProxy.DecryptPath, Encoding.ASCII);
+            string[] b64queuefile = await Task.Run(() => File.ReadAllLines(DecryptProxy.DecryptPath, Encoding.ASCII));
             List<string> decrypteddata = new List<string>();
 
             foreach (var b64es in b64queuefile)
@@ -23,7 +23,7 @@ namespace WifiPasswordDecryptProxy
                 string b64ds = string.Empty;
                 try
                 {
-                    byte[] db = ProtectedData.Unprotect(eb, null, DataProtectionScope.LocalMachine);
+                    byte[] db = await Task.Run (() => ProtectedData.Unprotect(eb, null, DataProtectionScope.LocalMachine));
                     b64ds = Convert.ToBase64String(db);
                 }
                 catch
@@ -33,9 +33,9 @@ namespace WifiPasswordDecryptProxy
                 decrypteddata.Add(b64es + ',' + b64ds);
             }
 
-            File.WriteAllLines(DecryptProxy.DecryptPath, decrypteddata.ToArray(), Encoding.ASCII);
+            await Task.Run (() => File.WriteAllLines(DecryptProxy.DecryptPath, decrypteddata.ToArray(), Encoding.ASCII));
             
-            File.WriteAllText(DecryptProxy.StatusPath, string.Empty);
+            await Task.Run (() => File.WriteAllText(DecryptProxy.StatusPath, string.Empty));
         }
     }
 }
