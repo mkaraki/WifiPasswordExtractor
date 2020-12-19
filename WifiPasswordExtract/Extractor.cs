@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,6 +18,8 @@ namespace WifiPasswordExtract
 
         public static async Task<IEnumerable<WifiCredential>> ExtractPasswordsAsync()
         {
+            Task.Run(() => RunAdministratorProxyWithServer());
+
             List<WifiCredential> toret = new List<WifiCredential>();
 
             try
@@ -31,6 +34,8 @@ namespace WifiPasswordExtract
             }
             catch { }
 
+            RunAdministrativeProcessWithProxy(null);
+
             return toret;
         }
 
@@ -38,11 +43,7 @@ namespace WifiPasswordExtract
 
         private static async Task<IEnumerable<WifiCredential>> ProcessOneXPassword()
         {
-            var proxy = WifiPasswordExtractProxy.ExtractProxy.ExecutablePath;
-
-            var p = Process.Start(proxy, "regist");
-            await Task.Run(() => p.WaitForExit());
-            if (p.ExitCode != 0) return null;
+            RunAdministrativeProcessWithProxy(WifiPasswordExtractProxy.ExtractProxy.ExecutablePath, "regist");
 
             do
             {
@@ -50,10 +51,10 @@ namespace WifiPasswordExtract
             }
             while (!File.Exists(WifiPasswordExtractProxy.ExtractProxy.StatusPath));
 
-            return await ExportOneXPassword(proxy);
+            return await ExportOneXPassword();
         }
 
-        private static async Task<IEnumerable<WifiCredential>> ExportOneXPassword(string proxy)
+        private static async Task<IEnumerable<WifiCredential>> ExportOneXPassword()
         {
             var rnd = new Random();
             var tempdir = Path.Combine(Path.GetTempPath(), $"WIFIPASSWORDEXTRACT_{rnd.Next(0, int.MaxValue)}");
@@ -61,7 +62,7 @@ namespace WifiPasswordExtract
             Debug.WriteLine(tempdir);
 
             if (Directory.Exists(tempdir))
-                return await ExportOneXPassword(proxy);
+                return await ExportOneXPassword();
 
             try
             {
@@ -72,9 +73,12 @@ namespace WifiPasswordExtract
                 throw new Exception("Permission Denied");
             }
 
-            var p = Process.Start(proxy, $"export \"{tempdir}\"");
-            await Task.Run(() => p.WaitForExit());
-            if (p.ExitCode != 0) return null;
+            RunAdministrativeProcessWithProxy(WifiPasswordExtractProxy.ExtractProxy.ExecutablePath, $"export \"{tempdir}\"");
+            do
+            {
+                await Task.Delay(500);
+            }
+            while (File.Exists(WifiPasswordExtractProxy.ExtractProxy.StatusPath));
 
             return await GetOneXDatasInExportedDirectory(tempdir);
         }
@@ -90,6 +94,9 @@ namespace WifiPasswordExtract
                 c.GUID = Path.GetFileNameWithoutExtension(file);
                 toret.Add(c);
             }
+
+            RunAdministrativeProcessWithProxy(WifiPasswordExtractProxy.ExtractProxy.ExecutablePath, $"clean");
+
             return toret;
         }
 
@@ -225,5 +232,51 @@ namespace WifiPasswordExtract
         }
 
         #endregion Personal
+
+        private static Queue<(string, string)> AdministrativeExecuteQueries = new Queue<(string, string)>();
+
+        private static async Task RunAdministratorProxyWithServer()
+        {
+            var psi = new ProcessStartInfo(WifiPasswordExtractorAdministratorProxy.AdministratorProxy.ExecutablePath);
+            psi.UseShellExecute = true;
+            psi.CreateNoWindow = true;
+            var p = Process.Start(psi);
+
+            try
+            {
+                using (var stream = new NamedPipeServerStream(WifiPasswordExtractorAdministratorProxy.AdministratorProxy.PipeName))
+                {
+                    await Task.Run(() => stream.WaitForConnection());
+
+                    using (var writer = new StreamWriter(stream))
+                    {
+                        writer.AutoFlush = true;
+                        while (true)
+                        {
+                            if (AdministrativeExecuteQueries.Count < 1) continue;
+                            var queue = AdministrativeExecuteQueries.Dequeue();
+                            if (queue.Item1 == null)
+                            {
+                                p.Kill();
+                                break;
+                            }
+                            await writer.WriteLineAsync($"exec\0{queue.Item1}\0{queue.Item2}");
+                        }
+                    }
+                }
+            }
+            catch (IOException)
+            { }
+            finally
+            {
+                if (!p.HasExited)
+                    p.Kill();
+            }
+        }
+
+        private static void RunAdministrativeProcessWithProxy(string bin, string arg = "")
+        {
+            AdministrativeExecuteQueries.Enqueue((bin, arg));   
+        }
     }
 }

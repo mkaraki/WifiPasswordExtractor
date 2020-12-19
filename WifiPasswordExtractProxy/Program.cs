@@ -88,6 +88,9 @@ export %Export Dir%:
             if (!Directory.Exists(a2)) ExitWithError(3, "ERROR: export dir not found");
 
             DataExtractor.UserEntryPoint(Path.GetFullPath(a2)).GetAwaiter().GetResult();
+
+            if (File.Exists(ExtractProxy.StatusPath))
+                File.Delete(ExtractProxy.StatusPath);
         }
 
         private static void ExitWithError(int code = 1, string reason = "ERROR: not valid args")
@@ -119,7 +122,7 @@ export %Export Dir%:
 
             int p1 = ExecuteProcess("schtasks.exe", $"/create /f /sc Once /tn \"{ExtractProxy.TaskName}\" /tr \"{ExtractProxy.ExecutablePath}\" /st 23:59 /ru \"SYSTEM\" /V1 /Z");
             int p2 = ExecuteProcess("schtasks.exe", $"/run /tn \"{ExtractProxy.TaskName}\"");
-            // int p3 = ExecuteProcess("schtasks.exe", $"/delete /f /tn \"{ExtractProxy.TaskName}\"");
+            int p3 = ExecuteProcess("schtasks.exe", $"/delete /f /tn \"{ExtractProxy.TaskName}\"");
 
             //return p1 == 0 && p2 == 0 && p3 == 0;
             return true;

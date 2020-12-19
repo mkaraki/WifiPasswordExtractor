@@ -9,7 +9,7 @@ namespace WifiPasswordExtractor
         {
             var proc = Extractor.ExtractPasswordsAsync();
 
-            Console.WriteLine("System may prompt UAC 2 times in scan.");
+            Console.WriteLine("System will prompt UAC when scanning.");
 
             Console.Write("Scanning");
             do
@@ -19,6 +19,15 @@ namespace WifiPasswordExtractor
             }
             while (!proc.IsCompleted);
             Console.WriteLine();
+
+            if (proc.IsFaulted)
+            {
+                Console.WriteLine("failed");
+#if DEBUG
+                Console.ReadLine();
+#endif
+                return;
+            }
 
             Console.WriteLine("========== RESULT ==========");
             foreach (var cred in proc.Result)
