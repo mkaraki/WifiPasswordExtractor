@@ -1,4 +1,6 @@
 # WifiPasswordExtractor
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmkaraki%2FWifiPasswordExtractor.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmkaraki%2FWifiPasswordExtractor?ref=badge_shield)
+
 Wi-Fi Password Extractor for Windows
 
 ## Supported Wi-Fi Security
@@ -105,3 +107,7 @@ Application specificated in `1.` run with `SYSTEM` user in this step.
 |/f|force (no prompt)|
 |/tn "`<TASK NAME>`"|Task name: `<TASK NAME>`|
 
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmkaraki%2FWifiPasswordExtractor.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmkaraki%2FWifiPasswordExtractor?ref=badge_large)
