@@ -1,4 +1,4 @@
-name: WifiPasswordExtractorGUI
+name: WifiPasswordExtractor
 
 on:
   push:
@@ -25,15 +25,15 @@ jobs:
         uses: NuGet/setup-nuget@v1.0.2
 
       - name: Restore
-        run: nuget restore $Env:GITHUB_WORKSPACE\WifiPasswordExtractorGUI\WifiPasswordExtractorGUI.csproj
+        run: nuget restore $Env:GITHUB_WORKSPACE\WifiPasswordExtractor\WifiPasswordExtractor.csproj
 
       - name: Build application
-        run: msbuild $Env:GITHUB_WORKSPACE\WifiPasswordExtractorGUI\WifiPasswordExtractorGUI.csproj
+        run: msbuild $Env:GITHUB_WORKSPACE\WifiPasswordExtractor\WifiPasswordExtractor.csproj
         env:
           Configuration: Release
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: WifiPasswordExtractorGUI
-          path: WifiPasswordExtractorGUI\bin\Release
+          name: WifiPasswordExtractor
+          path: WifiPasswordExtractor\bin\Release
