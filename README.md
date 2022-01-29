@@ -109,4 +109,3 @@ Application specificated in `1.` run with `SYSTEM` user in this step.
 |/delete|delete task|
 |/f|force (no prompt)|
 |/tn "`<TASK NAME>`"|Task name: `<TASK NAME>`|
-
