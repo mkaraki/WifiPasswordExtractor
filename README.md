@@ -1,4 +1,7 @@
 # WifiPasswordExtractor
+
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/90136e9b610f4d20b2593fe6957feb7f)](https://app.codacy.com/gh/mkaraki/WifiPasswordExtractor?utm_source=github.com&utm_medium=referral&utm_content=mkaraki/WifiPasswordExtractor&utm_campaign=Badge_Grade_Settings)
+
 Wi-Fi Password Extractor for Windows
 
 ## Supported Wi-Fi Security
