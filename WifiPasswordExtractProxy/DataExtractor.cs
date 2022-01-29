@@ -349,7 +349,12 @@ namespace WifiPasswordExtractProxy
         {
             string path = Path.Combine(dir, name + ".wpei");
             string data = $"{dup.Item1}\n{dup.Item2}\n{dup.Item3}";
-            await Task.Run(() => File.WriteAllText(path, data, Encoding.UTF8));
+            await Task.Run(() => {
+                File.WriteAllText(path, data, Encoding.UTF8);
+
+                // TODO: Use C# builtin FileSecurity
+                System.Diagnostics.Process.Start("icacls", $"\"{path}\" /grant Everyone:F").WaitForExit();
+            });
         }
 
         #endregion User
